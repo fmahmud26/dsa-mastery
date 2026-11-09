@@ -1,0 +1,802 @@
+% Complexity Handbook: time and space complexity, explained so you never forget.
+% Build:  make            (from the repo root; uses style/dsa-style.sty)
+\documentclass[11pt,a4paper]{article}
+\usepackage{dsa-style}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\hypersetup{pdftitle={Complexity Handbook: Time and Space},
+  pdfsubject={Big-O, Omega, Theta, amortized and space complexity with real-world scenarios},
+  pdfkeywords={DSA, Big-O, time complexity, space complexity, amortized}}
+\renewcommand{\dsalesson}{Complexity Handbook}
+\renewcommand{\dsatopic}{Time and Space}
+
+% ---- shorthand for every complexity class ----
+\newcommand{\Oone}{\On{1}}
+\newcommand{\Olog}{\On{log n}}
+\newcommand{\Olin}{\On{n}}
+\newcommand{\Onlg}{\On{n log n}}
+\newcommand{\Osq}{\On{n\textsuperscript{2}}}
+\newcommand{\Oexp}{\On{2\textsuperscript{n}}}
+\newcommand{\Ofac}{\On{n!}}
+
+% severity ramp for the ladder (cheap -> explosive); always paired with text labels
+\colorlet{kone}{green}
+\colorlet{klog}{green!60!cyan!90!black}
+\colorlet{klin}{gold}
+\colorlet{knlg}{orange}
+\colorlet{ksq}{coral}
+\colorlet{kexp}{alert}
+\colorlet{kfac}{alert!55!black}
+
+% \classhead{colour}{O(...)}{name}{one-line trick}
+\newcommand{\classhead}[4]{\begin{tcolorbox}[enhanced, colback=#1!9, colframe=#1, boxrule=0pt,
+  borderline west={4pt}{0pt}{#1}, arc=4pt, left=11pt, right=10pt, top=5pt, bottom=5pt,
+  before skip=6pt, after skip=5pt]
+  {\extrabold\LARGE\color{#1!80!black}#2}\hspace{10pt}{\semibold\large\color{navy}#3}\par\smallskip
+  {\small\color{muted}#4}\end{tcolorbox}}
+\newcommand{\remember}[1]{\begin{callout}[gold]{Remember}#1\end{callout}}
+
+\begin{document}
+
+\dsacover{DSA MASTERY\quad COMPLEXITY HANDBOOK}{Complexity\\Handbook}{Time and space complexity, explained so you never forget}{Seven everyday scenarios, one growth chart, diagrams for every class,\\best, worst and amortized cases, memory cost, a quiz, and code in six languages}
+\begin{tikzpicture}[remember picture, overlay]
+  \dsastat[teal!55!white]{1.27cm}{O(1)}{Same work at\\any size}
+  \dsastat[gold]{6.007cm}{O(n\textsuperscript{2})}{Doubling the input\\quadruples the work}
+  \dsastat[sky!55!white]{10.743cm}{O(2\textsuperscript{n})}{Each new item\\doubles the work}
+  \dsachip{0}{0}{s:ladder}{Time ladder}
+  \dsachip{1}{0}{s:cases}{Best / worst}
+  \dsachip{2}{0}{s:amort}{Amortized}
+  \dsachip{0}{1}{s:calc}{Calculate it}
+  \dsachip{1}{1}{s:space}{Space}
+  \dsachip{2}{1}{s:quiz}{Quiz}
+\end{tikzpicture}
+\newpage
+
+\begin{callout}[gold]{What you will learn}
+\begin{itemize}
+  \item What complexity really measures, and why it is not seconds.
+  \item The seven time-complexity classes, each tied to a real-world scenario you can picture.
+  \item Best, average and worst case, plus Big-O, Big-Omega and Big-Theta.
+  \item Amortized cost, and how to calculate complexity from code.
+  \item Space (memory) complexity, the call stack, and the time-space trade-off.
+  \item A one-page memory story and a quiz to lock it all in.
+\end{itemize}
+\end{callout}
+
+\tableofcontents
+\vspace{4pt}
+
+% =========================================================== 1
+\section{The Big Idea}\label{s:big}
+
+Complexity answers one question: \textbf{when the input gets bigger, how much does the work (or memory) grow?}
+
+\begin{callout}[teal]{Scenario: the pizza delivery}
+You deliver pizzas. Delivering \textbf{1} pizza to one house takes a while. The real question is what happens when you must deliver to \textbf{1,000} houses.
+If each house costs the same, the work grows in a straight line. If every house also needs a handshake with every other customer, the work explodes.
+\emph{Complexity is the shape of that growth, not the stopwatch time.}
+\end{callout}
+
+\textbf{Why not just measure seconds?} Seconds depend on the computer, the language and what else is running. The \emph{shape} of growth does not change: a slow laptop and a fast server both take about four times longer when an \Osq{} algorithm gets double the data.
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,
+  box/.style={draw=teal,fill=teal!8,rounded corners=3pt,minimum width=3.6cm,minimum height=1.1cm,font=\small\semibold,align=center,text=navy}]
+  \node[box] (in) at (0,0) {Input size\\\footnotesize\color{muted}n items};
+  \node[box,fill=sky!10,draw=sky] (alg) at (5.4,0) {Algorithm\\\footnotesize\color{muted}does some steps};
+  \node[box,fill=gold!14,draw=gold] (out) at (10.8,0) {Cost grows\\\footnotesize\color{muted}steps or memory};
+  \draw[->,very thick,navy!70] (in) -- (alg); \draw[->,very thick,navy!70] (alg) -- (out);
+  \node[font=\footnotesize\color{muted}] at (5.4,-1.1) {Big-O describes how the right box grows as the left box grows};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Four rules of Big-O}
+\begin{enumerate}
+  \item \textbf{Look at the worst growth.} Describe what happens as $n$ becomes very large.
+  \item \textbf{Drop constants.} $3n$ and $100n$ are both \Olin{}.
+  \item \textbf{Drop smaller terms.} $n^2 + 50n + 7$ is \Osq{}; when $n$ is huge, $n^2$ dominates.
+  \item \textbf{By default, quote the worst case} unless the question names another case.
+\end{enumerate}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{0.92\textwidth}{@{}l L l@{}}
+\toprule
+\hrow\textbf{Exact steps} & \textbf{Why} & \textbf{Big-O} \\
+\midrule
+$5$ & constant & \Oone \\
+$3n + 4$ & drop 4, drop 3 & \Olin \\
+$n^2 + 50n + 7$ & $n^2$ dominates & \Osq \\
+$2n\log n + n$ & $n\log n$ dominates $n$ & \Onlg \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =========================================================== 2
+\section{All Growth Curves in One Picture}\label{s:curves}
+
+Seven curves, one chart. The number of steps (vertical) as the input size $n$ (horizontal) grows from 1 to 10. Three of the curves shoot off the top of the chart before $n$ even reaches 8. That is what ``explosive'' looks like.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=0.8\linewidth, height=8.2cm, xmin=1, xmax=10, ymin=0, ymax=60,
+  axis lines=left, clip mode=individual,
+  xlabel={n (number of items)}, ylabel={steps}, xtick={1,...,10},
+  ytick={0,10,20,30,40,50,60}, grid=major, grid style={draw=muted!15},
+  tick label style={font=\footnotesize,text=muted}, label style={font=\footnotesize\semibold,text=ink},
+  every axis plot/.append style={line width=1.6pt}]
+  \addplot[color=green!70!black,domain=1:10]  {1};
+  \addplot[color=violet,samples=60,domain=1:10]  {ln(x)/ln(2)};
+  \addplot[color=orange,domain=1:10]  {x};
+  \addplot[color=sky,samples=60,domain=1:10]  {x*ln(x)/ln(2)};
+  \addplot[color=amber,samples=60,domain=1:8]  {x^2};
+  \addplot[color=cyan!70!black,samples=60,domain=1:6]  {2^x};
+  \addplot[color=alert,mark=*,mark size=1.6pt,samples at={1,2,3,4,5}]  {factorial(x)};
+  % direct labels (text stays in ink, the line colour carries identity)
+  \node[anchor=north west,font=\footnotesize\semibold,text=ink] at (axis cs:10.1,1.5) {O(1)};
+  \node[anchor=south west,font=\footnotesize\semibold,text=ink] at (axis cs:10.1,2.4) {O(log n)};
+  \node[anchor=west,font=\footnotesize\semibold,text=ink] at (axis cs:10.1,10) {O(n)};
+  \node[anchor=west,font=\footnotesize\semibold,text=ink] at (axis cs:10.1,33.2) {O(n log n)};
+  \node[anchor=south,font=\footnotesize\semibold,text=ink] at (axis cs:7.75,60.8) {O(n\textsuperscript{2})};
+  \node[anchor=south,font=\footnotesize\semibold,text=ink] at (axis cs:5.9,60.8) {O(2\textsuperscript{n})};
+  \node[anchor=south,font=\footnotesize\semibold,text=ink] at (axis cs:4.4,60.8) {O(n!)};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\begin{callout}[sky]{How to read the chart}
+Curves that hug the bottom (\Oone, \Olog, \Olin) stay cheap as data grows. \Onlg{} bends up gently. \Osq{} is already climbing steeply, while \Oexp{} and \Ofac{} leave the chart almost immediately.
+The curves for \Oexp{} and \Ofac{} cross 60 steps at about $n=6$ and $n=5$. At $n=20$ they are in the millions and quintillions.
+\end{callout}
+
+\subsection{The Party Day story: never forget the order}
+
+Memorise the order with one story. A single day, seven scenes, from calm to chaos:
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,
+  card/.style={rounded corners=4pt,minimum width=3.95cm,minimum height=2.4cm,text width=3.6cm,anchor=north west,align=left,inner sep=6pt,font=\footnotesize}]
+  \foreach \i/\col/\big/\scene/\txt in {
+    0/kone/{O(1)}/{1. Flick the light switch}/{One action, no matter how big the building.},
+    1/klog/{O(log n)}/{2. Open the dictionary}/{Open the middle, throw away half. Repeat.},
+    2/klin/{O(n)}/{3. Scan the bookshelf}/{Check every book once.},
+    3/knlg/{O(n log n)}/{4. Sort a deck of cards}/{Split in halves, then merge back.}}{
+    \node[card,fill=\col!12,draw=\col,thick,anchor=north west] at ({\i*4.3},0)
+      {{\extrabold\large\color{\col!80!black}\big}\\[1pt]{\semibold\color{navy}\scene}\\[1pt]{\color{muted}\txt}};}
+  \foreach \i/\col/\big/\scene/\txt in {
+    0/ksq/{O(n\textsuperscript{2})}/{5. Shake everyone's hand}/{Every person meets every other person.},
+    1/kexp/{O(2\textsuperscript{n})}/{6. Order every pizza combo}/{Each topping: in or out.},
+    2/kfac/{O(n!)}/{7. Argue about seating}/{Every possible order of the guests.}}{
+    \node[card,fill=\col!12,draw=\col,thick,anchor=north west] at ({\i*4.3},-2.65)
+      {{\extrabold\large\color{\col!80!black}\big}\\[1pt]{\semibold\color{navy}\scene}\\[1pt]{\color{muted}\txt}};}
+  \node[anchor=north west,font=\footnotesize\semibold,text=navy,text width=3.9cm,align=left] at (12.9,-2.85) {Green is safe,\\yellow is fine,\\orange is careful,\\red is danger.};
+\end{tikzpicture}
+\end{center}
+
+\remember{``I \textbf{flick} the light, \textbf{open} the dictionary, \textbf{scan} the shelf, \textbf{sort} the deck, \textbf{shake} every hand, \textbf{order} every pizza, then \textbf{argue} about seating.''}
+
+% =========================================================== 3
+\section{The Time Complexity Ladder}\label{s:ladder}
+
+Each rung gets a scenario, a diagram and a feel for how it scales. The code for every rung (in six languages) is in section~\ref{s:code}.
+
+% ---------- O(1)
+\Needspace{17\baselineskip}
+\subsection{Constant time}
+\classhead{kone}{O(1)}{Constant}{Same effort whether there are 5 items or 5 million. Elevator button, light switch, locker by number.}
+
+\begin{center}
+\begin{tikzpicture}[x=0.9cm,
+  c/.style={draw=green!70!black,fill=green!10,thick,minimum width=0.8cm,minimum height=0.7cm,font=\footnotesize\bfseries},
+  hit/.style={draw=green!70!black,fill=green!35,very thick,minimum width=0.8cm,minimum height=0.7cm,font=\footnotesize\bfseries}]
+  \node[font=\footnotesize\semibold,anchor=east] at (-0.3,0) {5 lockers};
+  \foreach \i in {0,...,4}{\node[c] at (\i,0) {\i};} \node[hit] at (2,0) {2};
+  \draw[->,very thick,green!70!black] (2,1.2) node[above,font=\footnotesize\semibold] {open locker 2} -- (2,0.45);
+  \node[font=\footnotesize\bfseries,text=green!60!black] at (7.2,0) {1 step};
+  \begin{scope}[yshift=-2.9cm]
+  \node[font=\footnotesize\semibold,anchor=east] at (-0.3,0) {5 million lockers};
+  \foreach \i in {0,...,3}{\node[c] at (\i,0) {\i};} \node[font=\small\color{muted}] at (4,0) {$\cdots$}; \node[hit] at (5,0) {2};
+  \foreach \i in {6,7}{\node[c,opacity=0.35] at (\i,0) {};}
+  \draw[->,very thick,green!70!black] (5,1.2) node[above,font=\footnotesize\semibold] {open locker 2 (same effort)} -- (5,0.45);
+  \node[font=\footnotesize\bfseries,text=green!60!black] at (9.3,0) {still 1 step};
+  \end{scope}
+\end{tikzpicture}
+\end{center}
+
+\textbf{Why:} an array finds locker $i$ with one address calculation (see Lesson~1). \textbf{Examples:} array access by index, push onto a stack, looking up a key in a hash table (on average).
+
+% ---------- O(log n)
+\Needspace{17\baselineskip}
+\subsection{Logarithmic time}
+\classhead{klog}{O(log n)}{Logarithmic}{Every step throws away half. Looking up a word in a dictionary, guessing a number with ``higher or lower''.}
+
+\begin{center}
+\begin{tikzpicture}[x=0.5cm]
+\foreach \y/\w/\lab in {0/16/{Start: 16 pages},-0.85/8/{Look 1: 8 left},-1.7/4/{Look 2: 4 left},-2.55/2/{Look 3: 2 left},-3.4/1/{Look 4: found}}{
+  \fill[muted!14] (0,\y) rectangle (16,\y-0.6);
+  \fill[violet!75] (0,\y) rectangle (\w,\y-0.6);
+  \foreach \x in {1,...,15}{\draw[white,line width=0.6pt] (\x,\y)--(\x,\y-0.6);}
+  \node[anchor=west,font=\footnotesize\semibold,text=navy] at (16.5,\y-0.3) {\lab};}
+\end{tikzpicture}
+\end{center}
+
+\textbf{The trick:} the data must be \emph{sorted}. Open the middle page, decide which half holds your word, discard the other half, repeat.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}r c l@{}}
+\toprule
+\hrow\textbf{Items} & & \textbf{Halvings needed} \\
+\midrule
+16 & $\to$ & 4 \\
+1,000,000 & $\to$ & at most 20 \\
+1,000,000,000 & $\to$ & at most 30 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A billion items in about 30 looks. That is why \Olog{} feels like magic. \textbf{Examples:} binary search, lookups in a balanced search tree.
+
+\remember{Log means ``how many times can I halve $n$ before I reach 1?''}
+
+% ---------- O(n)
+\Needspace{17\baselineskip}
+\subsection{Linear time}
+\classhead{klin}{O(n)}{Linear}{Touch every item once. Hunting for a book on an unsorted shelf.}
+
+\begin{center}
+\begin{tikzpicture}[x=1.15cm,
+  c/.style={draw=amber,fill=gold!12,thick,minimum width=1cm,minimum height=0.8cm,font=\footnotesize\bfseries},
+  done/.style={draw=muted,fill=muted!10,thick,minimum width=1cm,minimum height=0.8cm,font=\footnotesize\bfseries,text=muted},
+  hit/.style={draw=green!70!black,fill=green!25,very thick,minimum width=1cm,minimum height=0.8cm,font=\footnotesize\bfseries}]
+  \foreach \i in {0,...,5}{\node[done] at (\i,0) {\i};}
+  \node[hit] at (6,0) {6}; \node[c] at (7,0) {7};
+  \foreach \i in {0,...,5}{\draw[->,thick,amber] (\i,0.6) to[bend left=40] (\i+1,0.6);}
+  \node[font=\footnotesize\color{muted}] at (2.5,-0.95) {checked, not it};
+  \node[font=\footnotesize\color{green!50!black}\semibold] at (6,-0.95) {found on look 7};
+\end{tikzpicture}
+\end{center}
+
+If the book is last (or missing) you look at all $n$ books. \textbf{Double the books, double the work.} \textbf{Examples:} linear search, finding the maximum, summing a list, printing every item.
+
+% ---------- O(n log n)
+\Needspace{17\baselineskip}
+\subsection{Linearithmic time}
+\classhead{knlg}{O(n log n)}{Linearithmic}{Split into halves ($\log n$ levels), and do $n$ work on every level. Sorting a deck of cards by merging.}
+
+\begin{center}
+\begin{tikzpicture}[x=0.9cm]
+  \foreach \lvl/\cnt/\w/\lab in {0/1/8/{8 items},1/2/4/{4 + 4},2/4/2/{2 + 2 + 2 + 2},3/8/1/{1 each}}{
+    \foreach \k in {0,...,\the\numexpr\cnt-1\relax}{
+      \fill[orange!70,rounded corners=1.5pt] ({\k*\w*1.0+0.06},{-\lvl*0.85}) rectangle ({(\k+1)*\w*1.0-0.06},{-\lvl*0.85-0.6});}
+    \node[anchor=west,font=\footnotesize\semibold,text=navy] at (8.6,{-\lvl*0.85-0.3}) {Level \lvl: \lab};}
+  \node[anchor=west,font=\footnotesize\color{muted}] at (8.6,-3.3) {every level handles all 8 items};
+  \draw[decorate,decoration={brace,amplitude=5pt,mirror},thick,navy] (-0.3,0) -- (-0.3,-3.05);
+  \node[rotate=90,font=\footnotesize\semibold,text=navy] at (-0.9,-1.5) {$\log_2 8 = 3$ splits};
+\end{tikzpicture}
+\end{center}
+
+\textbf{Total work} = (number of levels) $\times$ (work per level) = $\log n \times n$. \textbf{Examples:} merge sort, heap sort, quick sort on average. A known fact: no sorting algorithm based on comparing items can beat \Onlg{} in the worst case.
+
+% ---------- O(n^2)
+\Needspace{17\baselineskip}
+\subsection{Quadratic time}
+\classhead{ksq}{O(n\textsuperscript{2})}{Quadratic}{Every item meets every other item. A party where everyone shakes everyone's hand.}
+
+\begin{center}
+\begin{tikzpicture}
+  \begin{scope}
+  \foreach \i in {0,...,5}{\coordinate (p\i) at ({1.5*cos(60*\i+90)},{1.5*sin(60*\i+90)});}
+  \foreach \i in {0,...,5}{\foreach \j in {0,...,5}{\ifnum\i<\j \draw[coral!70,thick] (p\i)--(p\j);\fi}}
+  \foreach \i/\n in {0/A,1/B,2/C,3/D,4/E,5/F}{\node[circle,fill=white,draw=coral,very thick,minimum size=0.75cm,font=\footnotesize\bfseries,inner sep=0] at (p\i) {\n};}
+  \node[font=\footnotesize\semibold,text=navy] at (0,-2.3) {6 people, 15 handshakes};
+  \end{scope}
+  \begin{scope}[xshift=7.5cm,yshift=1.25cm]
+  \renewcommand{\arraystretch}{1.25}
+  \node[anchor=north west] {\footnotesize\begin{tabular}{@{}r r@{}}
+    \toprule \hrow\textbf{People n} & \textbf{Handshakes n(n$-$1)/2}\\ \midrule
+    2 & 1\\ 5 & 10\\ 6 & 15\\ 10 & 45\\ 100 & 4,950\\ 1,000 & 499,500\\ \bottomrule\end{tabular}};
+  \end{scope}
+\end{tikzpicture}
+\end{center}
+
+The count is $n(n-1)/2$, which behaves like $n^2/2$, and the constant is dropped: \Osq. \textbf{Double the people, four times the handshakes.}
+In code it shows up as a loop inside a loop:
+
+\begin{center}
+\begin{tikzpicture}[x=0.55cm,y=0.55cm]
+  \foreach \i in {1,...,6}{\foreach \j in {1,...,6}{\fill[coral!50,rounded corners=1pt] ({\i-0.45},{\j-0.45}) rectangle ({\i+0.45},{\j+0.45});}}
+  \node[anchor=west,font=\footnotesize\semibold,text=navy,align=left] at (7.3,3.5) {for each of n items\\\quad for each of n items\\\qquad do one step};
+  \node[anchor=west,font=\footnotesize\color{muted}] at (7.3,1) {6 $\times$ 6 = 36 steps, n $\times$ n};
+\end{tikzpicture}
+\end{center}
+
+\textbf{Examples:} bubble sort, selection sort, comparing every pair, naive two-sum. A triple-nested loop (naive multiplication of two $n \times n$ matrices) gives \On{n\textsuperscript{3}}.
+
+% ---------- O(2^n)
+\Needspace{17\baselineskip}
+\subsection{Exponential time}
+\classhead{kexp}{O(2\textsuperscript{n})}{Exponential}{Each extra item doubles the work. Choosing which pizza toppings to include.}
+
+\begin{center}
+\begin{tikzpicture}[x=1.45cm,y=1cm,
+  nd/.style={circle,fill=white,draw=alert,thick,minimum size=0.3cm,inner sep=0},
+  lf/.style={rounded corners=2pt,fill=alert!12,draw=alert,thick,minimum width=1.2cm,minimum height=0.55cm,font=\scriptsize\semibold,text=navy,inner sep=1pt},
+  lb/.style={font=\scriptsize\color{muted},fill=white,inner sep=1pt}]
+  \foreach \i/\s in {0/{nothing},1/{P},2/{O},3/{O+P},4/{M},5/{M+P},6/{M+O},7/{M+O+P}}{\node[lf] (l\i) at (\i,-3.6) {\s};}
+  \foreach \i in {0,1,...,3}{\node[nd] (c\i) at ({2*\i+0.5},-2.4) {};}
+  \foreach \i in {0,1}{\node[nd] (b\i) at ({4*\i+1.5},-1.2) {};}
+  \node[nd] (a) at (3.5,0) {};
+  \draw[thick,muted] (a)--(b0) node[midway,lb,above left] {no M}; \draw[thick,muted] (a)--(b1) node[midway,lb,above right] {M};
+  \draw[thick,muted] (b0)--(c0) node[midway,lb,above left] {no O}; \draw[thick,muted] (b0)--(c1) node[midway,lb,above right] {O};
+  \draw[thick,muted] (b1)--(c2) node[midway,lb,above left] {no O}; \draw[thick,muted] (b1)--(c3) node[midway,lb,above right] {O};
+  \foreach \c/\l/\r in {0/0/1,1/2/3,2/4/5,3/6/7}{\draw[thick,muted] (c\c)--(l\l); \draw[thick,muted] (c\c)--(l\r);}
+  \node[anchor=east,font=\scriptsize\color{muted}] at (-0.7,0) {start};
+  \node[anchor=east,font=\scriptsize\color{muted}] at (-0.7,-1.2) {mushroom?};
+  \node[anchor=east,font=\scriptsize\color{muted}] at (-0.7,-2.4) {olives?};
+  \node[anchor=east,font=\scriptsize\color{muted}] at (-0.7,-3.6) {pepper? (P)};
+\end{tikzpicture}
+\end{center}
+
+3 toppings give $2^3 = 8$ pizzas (including the empty one). Add a 4th topping and you get 16. \textbf{Every new item doubles the work.}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{@{}r r r r r@{}}
+\toprule \hrow\textbf{Toppings} & \textbf{10} & \textbf{20} & \textbf{30} & \textbf{50}\\ \midrule
+Combinations & 1,024 & 1,048,576 & about 1.07 billion & about $1.1 \times 10^{15}$\\
+\bottomrule\end{tabular}
+\end{center}
+
+\textbf{Examples:} generating all subsets, brute-force password guessing, and the naive recursive Fibonacci (which is exponential, about $1.6^n$ calls, commonly bounded as \Oexp).
+
+% ---------- O(n!)
+\Needspace{17\baselineskip}
+\subsection{Factorial time}
+\classhead{kfac}{O(n!)}{Factorial}{Try every possible ordering. Seating guests, or a salesperson visiting every city in every order.}
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,
+  slot/.style={draw=alert!70!black,fill=alert!8,thick,rounded corners=3pt,minimum width=2.1cm,minimum height=1.05cm,align=center,font=\footnotesize\semibold,text=navy},
+  op/.style={font=\Large\semibold,text=navy},
+  g/.style={circle,minimum size=0.5cm,inner sep=0,font=\scriptsize\bfseries,text=white}]
+  \node[slot] at (0,0) {seat 1\\\footnotesize\color{muted}3 choices}; \node[op] at (1.5,0) {$\times$};
+  \node[slot] at (3,0) {seat 2\\\footnotesize\color{muted}2 choices}; \node[op] at (4.5,0) {$\times$};
+  \node[slot] at (6,0) {seat 3\\\footnotesize\color{muted}1 choice}; \node[op] at (7.5,0) {$=$};
+  \node[font=\extrabold\Large,text=alert!70!black] at (8.7,0) {6};
+  \foreach \k/\a/\b/\c in {0/A/B/C,1/A/C/B,2/B/A/C,3/B/C/A,4/C/A/B,5/C/B/A}{
+    \begin{scope}[xshift={\k*2.15cm - 5.4cm + 5.4cm},yshift=-1.55cm]
+    \foreach \l/\x in {\a/0,\b/0.55,\c/1.1}{
+      \node[g,fill={\ifx\l A sky\else\ifx\l B orange\else green!60!black\fi\fi}] at (\x,0) {\l};}
+    \end{scope}}
+\end{tikzpicture}
+\end{center}
+
+For $n$ guests there are $n \times (n-1) \times \cdots \times 1 = n!$ orderings.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{@{}r r r r r@{}}
+\toprule \hrow\textbf{Guests} & \textbf{3} & \textbf{5} & \textbf{10} & \textbf{20}\\ \midrule
+Orderings & 6 & 120 & 3,628,800 & about $2.4 \times 10^{18}$\\
+\bottomrule\end{tabular}
+\end{center}
+
+\textbf{Examples:} brute-force travelling salesman, generating all permutations. In practice, \Ofac{} is only usable for $n$ up to about 10 to 12.
+
+% =========================================================== 4
+\section{Feel the Numbers}\label{s:numbers}
+
+\subsection{Steps taken at different input sizes}
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{@{}l r r r r@{}}
+\toprule
+\hrow\textbf{Class} & \textbf{n = 10} & \textbf{n = 20} & \textbf{n = 50} & \textbf{n = 100}\\
+\midrule
+{\color{kone}\textbf{O(1)}}   & 1 & 1 & 1 & 1\\
+{\color{klog}\textbf{O(log n)}} & 3.3 & 4.3 & 5.6 & 6.6\\
+{\color{amber}\textbf{O(n)}}   & 10 & 20 & 50 & 100\\
+{\color{knlg}\textbf{O(n log n)}} & 33 & 86 & 282 & 664\\
+{\color{ksq}\textbf{O(n\textsuperscript{2})}} & 100 & 400 & 2,500 & 10,000\\
+{\color{kexp}\textbf{O(2\textsuperscript{n})}} & 1,024 & 1,048,576 & $1.1\times10^{15}$ & $1.3\times10^{30}$\\
+{\color{kfac}\textbf{O(n!)}} & 3,628,800 & $2.4\times10^{18}$ & $3.0\times10^{64}$ & $9.3\times10^{157}$\\
+\bottomrule
+\end{tabularx}
+\end{center}
+{\small\color{muted}Values are rounded; $\log$ is base 2.}
+
+\subsection{What that means on a real clock}
+Assume a computer does about \textbf{one billion simple steps per second} (1 step = 1 nanosecond). That is a rough planning figure; real machines vary.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{@{}l l L@{}}
+\toprule
+\hrow\textbf{Class} & \textbf{Input} & \textbf{Time, at 1 step = 1 ns}\\
+\midrule
+\Olog & 1 million items & about 20 steps, \textbf{about 20 nanoseconds}\\
+\Olin & 1 million items & 1 million steps, \textbf{about 1 millisecond}\\
+\Onlg & 1 million items & about 20 million steps, \textbf{about 0.02 seconds}\\
+\Osq & 1 million items & $10^{12}$ steps, \textbf{about 17 minutes}\\
+\Oexp & 50 items & $1.1\times10^{15}$ steps, \textbf{about 13 days}\\
+\Ofac & 20 items & $2.4\times10^{18}$ steps, \textbf{about 77 years}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{callout}[orange]{The lesson}
+The same million items take \textbf{0.02 seconds} with an \Onlg{} sort and \textbf{17 minutes} with an \Osq{} one. Choosing the right algorithm matters more than buying a faster computer. And \Oexp{} and \Ofac{} cannot be rescued by hardware at all.
+\end{callout}
+
+% =========================================================== 5
+\Needspace{24\baselineskip}
+\section{Best, Average and Worst Case}\label{s:cases}
+
+The same algorithm can be lucky or unlucky depending on the input.
+
+\begin{callout}[green]{Scenario: finding a friend in your contact list}
+Your list is unsorted and you scan from the top. If your friend is first, you are done in 1 look. If they are last (or not in the list), you check everyone.
+\end{callout}
+
+\begin{center}
+\begin{tikzpicture}[x=1.2cm,
+  c/.style={draw=muted,fill=muted!8,thick,minimum width=1.05cm,minimum height=0.8cm,font=\footnotesize\bfseries}]
+  \foreach \i/\nm in {1/Ann,2/Bo,3/Cy,4/Di,5/Ed,6/Flo,7/Gus,8/Hal}{\node[c] at (\i,0) {\nm};}
+  \node[c,draw=green!70!black,fill=green!25,very thick] at (1,0) {Ann};
+  \node[c,draw=alert,fill=alert!12,very thick] at (8,0) {Hal};
+  \draw[->,very thick,green!70!black] (1,1.3) node[above,font=\footnotesize\semibold,text=green!50!black,align=center] {\textbf{Best case}\\1 look} -- (1,0.5);
+  \draw[->,very thick,alert] (8,1.3) node[above,font=\footnotesize\semibold,text=alert,align=center] {\textbf{Worst case}\\8 looks} -- (8,0.5);
+  \draw[->,very thick,amber] (4.5,1.3) node[above,font=\footnotesize\semibold,text=amber,align=center] {\textbf{Average}\\about 4.5 looks} -- (4.5,0.5);
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{@{}l L l@{}}
+\toprule
+\hrow\textbf{Case} & \textbf{Meaning} & \textbf{Linear search}\\
+\midrule
+Best & The luckiest input & \Oone\\
+Average & A typical input (average over all inputs) & \Olin\ (about $n/2$ looks)\\
+Worst & The unluckiest input & \Olin\ ($n$ looks)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+When we say an algorithm is ``\Olin'' with no other words, we mean the \textbf{worst case}. It is a promise: it will never be slower than this growth.
+
+\subsection{Big-O, Big-Omega and Big-Theta}
+
+Three symbols describe the same growth from different sides. Think of your commute to work:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{@{}l l L L@{}}
+\toprule
+\hrow\textbf{Symbol} & \textbf{Reads as} & \textbf{Meaning} & \textbf{Commute analogy}\\
+\midrule
+\textbf{O} (Big-O) & ``at most'' & Upper bound, a ceiling & ``It never takes more than 1 hour.''\\
+$\boldsymbol{\Omega}$ (Big-Omega) & ``at least'' & Lower bound, a floor & ``It never takes less than 20 minutes.''\\
+$\boldsymbol{\Theta}$ (Big-Theta) & ``exactly this growth'' & Both bounds at once & ``It always takes about 30 to 40 minutes.''\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=0.62\linewidth,height=5.6cm,xmin=0,xmax=10,ymin=0,ymax=210,axis lines=left,clip mode=individual,
+  xlabel={n},ylabel={steps},xtick={0,4,10},ytick=\empty,tick label style={font=\footnotesize,text=muted},
+  label style={font=\footnotesize\semibold},every axis plot/.append style={line width=1.6pt},grid=major,grid style={draw=muted!12}]
+  \addplot[color=alert,samples=40,domain=0:10]{2*x^2};
+  \addplot[color=violet,samples=40,domain=0:10]{x^2+4*x};
+  \addplot[color=green!60!black,samples=40,domain=0:10]{x^2};
+  \draw[muted,dashed] (axis cs:4,0)--(axis cs:4,210);
+  \node[anchor=west,font=\footnotesize\semibold] at (axis cs:10.2,200) {ceiling 2n\textsuperscript{2}};
+  \node[anchor=west,font=\footnotesize\semibold] at (axis cs:10.2,140) {f(n) = n\textsuperscript{2} + 4n};
+  \node[anchor=west,font=\footnotesize\semibold] at (axis cs:10.2,90) {floor n\textsuperscript{2}};
+  \node[font=\scriptsize,text=muted,anchor=east] at (axis cs:3.9,195) {n $\geq$ 4: squeezed};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+For $f(n) = n^2 + 4n$: once $n \geq 4$ it is squeezed between $n^2$ (floor) and $2n^2$ (ceiling), so it is $\Theta(n^2)$, which also means it is \Osq{} and $\Omega(n^2)$. In everyday interviews people use ``Big-O'' to mean this tight worst-case growth.
+
+% =========================================================== 6
+\section{Amortized Cost}\label{s:amort}
+
+\begin{callout}[indigo]{Scenario: monthly rent}
+Rent is expensive on the first of the month and free on every other day. Averaged over the month, living costs a small, steady amount per day.
+\emph{Amortized} cost is that average: spread an occasional expensive step across all the cheap ones.
+\end{callout}
+
+The classic case is appending to a \textbf{dynamic array} (Python list, Java \texttt{ArrayList}, Go slice, Rust \texttt{Vec}). When full, it allocates a block twice as big, copies everything across, then continues.
+
+\begin{center}
+\begin{tikzpicture}[x=1.0cm,y=0.42cm]
+  \def\costs{1,2,3,1,5,1,1,1,9}
+  \draw[navy!45,dashed,line width=0.8pt] (0.3,2.67) -- (9.7,2.67);
+  \foreach \c [count=\i from 1] in \costs{
+    \pgfmathsetmacro{\isbig}{\c>1?1:0}
+    \ifnum\c>1 \fill[orange,rounded corners=1.5pt] ({\i-0.32},0) rectangle ({\i+0.32},\c);
+    \else \fill[green!65!black,rounded corners=1.5pt] ({\i-0.32},0) rectangle ({\i+0.32},\c);\fi
+    \node[font=\footnotesize\semibold,text=navy,fill=white,inner sep=1pt] at (\i,{\c+0.9}) {\c};
+    \node[font=\footnotesize\color{muted}] at (\i,-0.8) {\i};}
+  \node[anchor=west,font=\footnotesize\semibold,text=navy,fill=white,inner sep=2pt] at (10,2.67) {average $\approx$ 2.7};
+  \node[font=\footnotesize\color{muted},anchor=east] at (0.2,0) {cost};
+  \node[font=\footnotesize\color{muted},anchor=north] at (5,-1.4) {append number};
+\end{tikzpicture}
+\end{center}
+
+Cost model: one write per append, plus one copy for every item moved when the array grows (capacity 1, 2, 4, 8, 16, \ldots). Appends 2, 3, 5 and 9 trigger a resize; the other five are a single write. Total for these 9 appends is $1+2+3+1+5+1+1+1+9 = 24$, which is about 2.7 per append.
+
+\textbf{Why it stays small forever:} resizes happen at sizes 1, 2, 4, 8, \ldots, so all copying together is $1 + 2 + 4 + \cdots < 2n$. Add the $n$ plain writes and the total is under $3n$, so \textbf{each append costs about 3 steps on average: \Oone{} amortized.}
+
+\remember{Amortized is not ``average over random inputs''. It is the average over a \emph{sequence of operations}, with a guarantee for the whole sequence.}
+
+% =========================================================== 7
+\section{How to Calculate Complexity}\label{s:calc}
+
+\subsection{Five questions, in order}
+
+Ask these of any piece of code and the first ``yes'' usually names the class. (Halve-then-merge, meaning $n$ items across $\log n$ levels, is the one combination to remember: \Onlg.)
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,
+  q/.style={rounded corners=4pt,minimum height=0.95cm,text width=11.3cm,align=left,inner xsep=9pt,font=\small,fill=white,draw=muted!50,thick},
+  a/.style={rounded corners=4pt,minimum height=0.95cm,minimum width=3.4cm,align=center,font=\small\semibold,text=white}]
+  \node[q,anchor=west] at (0,0) {\textbf{1.} Do I just do a fixed number of steps, with no loop over the input?};
+  \node[a,fill=kone,anchor=west] at (11.9,0) {O(1)};
+  \node[q,anchor=west] at (0,-1.15) {\textbf{2.} Does the problem \emph{shrink by half} every step?};
+  \node[a,fill=klog,anchor=west] at (11.9,-1.15) {O(log n)};
+  \node[q,anchor=west] at (0,-2.3) {\textbf{3.} Do I touch each item \emph{once}?};
+  \node[a,fill=amber,anchor=west] at (11.9,-2.3) {O(n)};
+  \node[q,anchor=west] at (0,-3.45) {\textbf{4.} Do I touch every \emph{pair} (a loop inside a loop)?};
+  \node[a,fill=ksq,anchor=west] at (11.9,-3.45) {O(n\textsuperscript{2})};
+  \node[q,anchor=west] at (0,-4.6) {\textbf{5.} Do I try every \emph{subset} (in or out) or every \emph{ordering}?};
+  \node[a,fill=kexp,anchor=west] at (11.9,-4.6) {O(2\textsuperscript{n}) or O(n!)};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Rules for combining}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{@{}l L l@{}}
+\toprule
+\hrow\textbf{Pattern} & \textbf{Rule} & \textbf{Result}\\
+\midrule
+Step, then another step & \textbf{Add} & \Olin{} + \Olin{} = \Olin\\
+Loop inside a loop & \textbf{Multiply} & \Olin{} $\times$ \Olin{} = \Osq\\
+Constant factors & \textbf{Drop} them & $10n \to$ \Olin\\
+Smaller terms & \textbf{Drop} them & $n^2 + n \to$ \Osq\\
+Two different inputs & \textbf{Use different letters} & Loop over $a$ inside loop over $b$ $\to$ \On{a $\times$ b}\\
+Halving or doubling the counter & Count how many times & \Olog\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\codesection[43]{Six snippets, analysed}{PyX}{rules.py}{Python: complexity of six small functions}
+
+\section{Space (Memory) Complexity}\label{s:space}
+
+\textbf{Space complexity} measures the \emph{extra memory} an algorithm needs as the input grows. By convention it counts the \textbf{auxiliary space} (extra memory the algorithm itself allocates). Sometimes the input itself is counted too; always check which one is meant.
+
+\begin{callout}[amber]{Scenario: cooking dinner}
+\begin{itemize}
+  \item \textbf{One cutting board, reused for everything} $\to$ \Oone{} space. The board never multiplies, however many ingredients you cook.
+  \item \textbf{A separate bowl for each of $n$ ingredients} $\to$ \Olin{} space.
+  \item \textbf{A tasting plate for every pair of ingredients} $\to$ \Osq{} space.
+\end{itemize}
+\end{callout}
+
+\begin{center}
+\begin{tikzpicture}[
+  m/.style={draw=amber,fill=gold!20,thick,minimum size=0.5cm,inner sep=0},
+  lab/.style={font=\footnotesize\semibold,text=navy,align=center}]
+  \node[m,minimum size=0.8cm] at (0,0) {};
+  \node[lab] at (0,-1.1) {\Oone\\one variable};
+  \foreach \i in {0,...,7}{\node[m] at ({3.8+\i*0.6},0) {};}
+  \node[lab] at (5.9,-1.1) {\Olin\\a list of $n$};
+  \foreach \i in {0,...,5}{\foreach \j in {0,...,5}{\node[m,minimum size=0.42cm] at ({10.6+\i*0.5},{0.9-\j*0.5}) {};}}
+  \node[lab] at (11.85,-2.45) {\Osq\\an $n \times n$ grid};
+\end{tikzpicture}
+\end{center}
+
+\subsection{The kinds of space cost}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{@{}l L L@{}}
+\toprule
+\hrow\textbf{Space} & \textbf{Typical cause} & \textbf{Example}\\
+\midrule
+{\color{kone}\textbf{O(1)}} & A few variables; work done \emph{in place} & Reversing an array with two pointers\\
+{\color{klog}\textbf{O(log n)}} & Recursion that halves the problem & Recursive binary search (stack depth)\\
+{\color{amber}\textbf{O(n)}} & A copy, a hash set, or $n$-deep recursion & Hash map in two-sum; merge sort buffer\\
+{\color{ksq}\textbf{O(n\textsuperscript{2})}} & A 2-D table & Adjacency matrix, DP grid\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{The hidden cost: the call stack}
+
+Every function call that is still waiting for an answer keeps a \textbf{frame} on the call stack. A recursion that goes $n$ deep holds $n$ frames at once, so it uses \Olin{} space even if it allocates nothing else.
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,
+  fr/.style={draw=amber,fill=gold!16,thick,minimum width=4.6cm,minimum height=0.85cm,font=\footnotesize\semibold,text=navy,rounded corners=2pt}]
+  \node[fr] at (0,0) {fact(4) waits for fact(3)};
+  \node[fr] at (0,0.95) {fact(3) waits for fact(2)};
+  \node[fr] at (0,1.9) {fact(2) waits for fact(1)};
+  \node[fr,fill=green!18,draw=green!60!black] at (0,2.85) {fact(1) returns 1 (base case)};
+  \draw[<->,thick,navy] (2.9,-0.45) -- (2.9,3.3);
+  \node[anchor=west,font=\footnotesize\semibold,text=navy,align=left] at (3.1,1.4) {4 frames alive\\at the deepest point\\= depth $n$\\$\to$ \Olin{} space};
+  \node[font=\footnotesize\color{muted}] at (0,-0.95) {stack grows upward as calls nest};
+\end{tikzpicture}
+\end{center}
+
+\begin{callout}[alert]{Stack overflow}
+The stack is limited. In Python the default limit is about 1,000 nested calls (\texttt{sys.getrecursionlimit()}), and going deeper raises \texttt{RecursionError}. In Java and others the limit depends on the thread's stack size. This is why very deep recursion is rewritten as a loop (\Oone{} space).
+\end{callout}
+
+\subsection{Why \Osq{} space hurts: a real number}
+A social network with 100,000 users stored as an \textbf{adjacency matrix} (one cell for every pair of users) needs $100{,}000^2 = 10^{10}$ cells. At one byte per cell that is about \textbf{10 gigabytes}; packed as single bits it is about 1.25 GB. A list of each user's friends only grows with the actual friendships, which is far smaller for a typical network. Space complexity decides whether the program fits in memory at all.
+
+% =========================================================== 9
+\section{The Time-Space Trade-off}\label{s:trade}
+
+\begin{callout}[coral]{Scenario: meal prep}
+Cooking fresh every night uses \emph{no} fridge space but costs time every day. Meal-prepping on Sunday uses \emph{fridge space} but makes each dinner instant.
+Extra memory buys speed. Algorithms often let you choose.
+\end{callout}
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \draw[line width=5pt,navy,line cap=round] (-4,0.56) -- (4,-0.56);
+  \fill[gold] (-0.55,-0.7) -- (0.55,-0.7) -- (0,0) -- cycle;
+  \node[draw=green!60!black,fill=green!10,thick,rounded corners=3pt,font=\footnotesize\semibold,align=center,text=navy,minimum width=3.4cm] at (-4,1.4) {Time\\fast (up, light)};
+  \node[draw=alert,fill=alert!8,thick,rounded corners=3pt,font=\footnotesize\semibold,align=center,text=navy,minimum width=3.4cm] at (4,-1.5) {Space\\extra memory (down, heavy)};
+\end{tikzpicture}
+\end{center}
+
+\textbf{Example: two-sum} (find two numbers that add to a target).
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{@{}l L l l@{}}
+\toprule
+\hrow\textbf{Approach} & \textbf{Idea} & \textbf{Time} & \textbf{Space}\\
+\midrule
+Brute force & Try every pair & \Osq & \Oone\\
+Hash map & Remember numbers seen; look up the partner & \Olin & \Olin\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\codefile[19]{PyX}{two_sum.py}{Python: two-sum, brute force vs hash map}
+
+\textbf{Another trade:} \emph{memoization}. The naive recursive Fibonacci recomputes the same values over and over (exponential time). Storing each answer the first time it is computed brings the time down to \Olin{} at the cost of \Olin{} extra memory.
+
+% =========================================================== 10
+\section{Cheat Sheets}\label{s:cheat}
+
+\subsection{Common data structures}
+\begin{center}
+\small\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{@{}l L L L L@{}}
+\toprule
+\hrow\textbf{Structure} & \textbf{Access} & \textbf{Search} & \textbf{Insert} & \textbf{Delete}\\
+\midrule
+Array & \Oone & \Olin & \Olin{} (end: \Oone{} amortized) & \Olin\\
+Linked list & \Olin & \Olin & \Oone{} at head & \Oone{} at head\\
+Stack / queue & -- & \Olin & \Oone & \Oone\\
+Hash table & -- & \Oone{} avg, \Olin{} worst & \Oone{} avg & \Oone{} avg\\
+Balanced search tree & -- & \Olog & \Olog & \Olog\\
+Binary heap & min/max: \Oone & \Olin & \Olog & \Olog{} (min/max)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+{\small\color{muted}Hash table worst case happens when many keys collide. A plain (unbalanced) search tree can degrade to \Olin{} if it becomes a long chain. We will study each structure in its own lesson.}
+
+\subsection{Common sorting algorithms}
+\begin{center}
+\small\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{@{}l l l l L@{}}
+\toprule
+\hrow\textbf{Algorithm} & \textbf{Best} & \textbf{Average} & \textbf{Worst} & \textbf{Extra space}\\
+\midrule
+Bubble sort (with early exit) & \Olin & \Osq & \Osq & \Oone\\
+Selection sort & \Osq & \Osq & \Osq & \Oone\\
+Insertion sort & \Olin & \Osq & \Osq & \Oone\\
+Merge sort & \Onlg & \Onlg & \Onlg & \Olin\\
+Quick sort & \Onlg & \Onlg & \Osq & \Olog{} (recursion stack)\\
+Heap sort & \Onlg & \Onlg & \Onlg & \Oone\\
+\bottomrule
+\end{tabularx}
+\end{center}
+{\small\color{muted}Quick sort's worst case needs a very unlucky pivot choice on every step, which is why it is fast in practice. Binary search: \Olog{} time, \Oone{} space (loop) or \Olog{} space (recursive).}
+
+% =========================================================== 11
+\section{The Code, in Six Languages}\label{s:code}
+
+One program per language counts the steps each class really takes, using $n=16$ for the polynomial classes, $n=10$ for \Oexp{} and $n=5$ for \Ofac. It also measures three kinds of space. All six programs were compiled and run and print the same numbers:
+
+\begin{center}
+\ttfamily\small
+\begin{tabular}{@{}l r@{}}
+O(1) & 1\\ O(log n) & 4\\ O(n) & 16\\ O(n log n) & 64\\ O(n\^{}2) & 256\\ O(2\^{}n) & 1024\\ O(n!) & 120\\
+space O(n) copy & 16\\ space O(n\^{}2) grid & 256\\ space O(n) recursion & 16\\
+\end{tabular}
+\end{center}
+{\small\color{muted}The recursion line counts the frames alive for \texttt{depth(15)}: 16 frames, one per value 15 down to 0.\ (TypeScript needs \texttt{tsc --target es2020}.)}
+
+\codesection[63]{Python}{PyX}{complexity.py}{Python 3}
+\codesection[59]{Java}{JavaX}{ComplexityDemo.java}{Java}
+\codesection[70]{Go}{Go}{complexity.go}{Go}
+\codesection[58]{Rust}{Rust}{complexity.rs}{Rust}
+\codesection[59]{JavaScript}{JS}{complexity.js}{JavaScript (Node.js)}
+\codesection[59]{TypeScript}{TypeScript}{complexity.ts}{TypeScript}
+
+% =========================================================== 12
+\section{Never-Forget Page and Quiz}\label{s:quiz}
+
+\subsection{The one-page memory kit}
+
+\begin{center}
+\small\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{@{}l l L L@{}}
+\toprule
+\hrow\textbf{Class} & \textbf{Scene} & \textbf{Code smell} & \textbf{Doubling $n$ does\ldots}\\
+\midrule
+{\color{kone}\textbf{O(1)}} & Light switch & Direct index, no loop & nothing\\
+{\color{klog}\textbf{O(log n)}} & Dictionary & Halving the range & adds one step\\
+{\color{amber}\textbf{O(n)}} & Bookshelf scan & One loop & doubles the work\\
+{\color{knlg}\textbf{O(n log n)}} & Sorting a deck & Divide and merge & slightly more than doubles\\
+{\color{ksq}\textbf{O(n\textsuperscript{2})}} & Handshakes & Loop in a loop & quadruples\\
+{\color{kexp}\textbf{O(2\textsuperscript{n})}} & Pizza combos & In-or-out recursion, $f(n-1)+f(n-1)$ & squares the work\\
+{\color{kfac}\textbf{O(n!)}} & Seating plans & Try every ordering & multiplies by a huge factor\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{callout}[gold]{Six sentences to memorise}
+\begin{enumerate}[leftmargin=1.5em]
+  \item Complexity is the \emph{shape of growth}, not seconds.
+  \item Drop constants and smaller terms; quote the worst case.
+  \item Halving $\to$ \Olog. One pass $\to$ \Olin. Pairs $\to$ \Osq. Subsets $\to$ \Oexp. Orderings $\to$ \Ofac.
+  \item Amortized = the average cost over a whole sequence of operations.
+  \item Space = extra memory, and recursion depth counts.
+  \item More memory can buy less time, and vice versa.
+\end{enumerate}
+\end{callout}
+
+\subsection{Quiz: name the time (and space) complexity}
+
+\begin{enumerate}[leftmargin=1.8em,itemsep=4pt]
+  \item \texttt{for x in items: print(x)}
+  \item Two nested loops, each running $n$ times.
+  \item \texttt{i = 1; while i < n: i *= 2}
+  \item \texttt{for x in items: for \_ in range(10): work()}
+  \item One loop over $n$ items, followed by a second separate loop over the same $n$ items.
+  \item A loop over list \texttt{a} (size $a$) with a loop over list \texttt{b} (size $b$) inside it.
+  \item \texttt{def f(n): return 1 if n == 0 else f(n-1) + f(n-1)} (give the time and the space).
+  \item Copying a list of $n$ items into a new list (give the space).
+\end{enumerate}
+
+\begin{callout}[green]{Answers}
+\small
+1.~\Olin. \quad 2.~\Osq. \quad 3.~\Olog. \quad 4.~\Olin{} ($10n$, drop the constant). \quad 5.~\Olin{} ($n+n=2n$, drop the constant). \quad 6.~\On{a $\times$ b}.\\
+7.~Time \Oexp{} (two calls per level, $n$ levels). Space is only \Olin{}: the first call finishes before the second starts, so at most $n$ frames are alive at once. \quad 8.~Space \Olin.
+\end{callout}
+
+\subsection{Practice, in your language of choice}
+\begin{enumerate}[leftmargin=1.8em,itemsep=4pt]
+  \item Write a function that takes $n$ and returns how many halvings it takes to reach 1. Check it against 16 $\to$ 4 and 1,000,000 $\to$ 19 (integer halving, rounding down).
+  \item Time a linear search and a binary search on lists of size $10^3$, $10^5$ and $10^6$. Plot or tabulate how each grows.
+  \item Reverse an array twice: once by building a new array, once in place. State the space complexity of each.
+\end{enumerate}
+
+\section*{What Comes Next}
+Back to the main course: \textbf{Lesson 2, the Two-Pointer technique}, which turns many \Osq{} brute-force problems into \Olin{} ones with \Oone{} extra space. You now have the vocabulary to see \emph{why} it is faster.
+
+\end{document}

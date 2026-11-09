@@ -1,0 +1,307 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{dsa-style}
+\hypersetup{pdftitle={DSA Lesson 1: The Array},pdfsubject={Data Structures and Algorithms from the beginning},pdfkeywords={DSA, array, Big-O, Python, Java, Go, Rust, JavaScript, TypeScript}}
+\renewcommand{\dsalesson}{Lesson 1}
+\renewcommand{\dsatopic}{The Array}
+
+\begin{document}
+
+\dsacover{DSA MASTERY\quad LESSON 1}{The\\Array}{The simplest data structure, and the foundation of almost every other one}{Real-world scenario, memory diagrams, five core operations and working code\\in Python, Java, Go, Rust, JavaScript and TypeScript}
+\begin{tikzpicture}[remember picture, overlay]
+  \dsastat[teal!55!white]{1.27cm}{O(1)}{Access by index,\\instant at any size}
+  \dsastat[gold]{6.007cm}{O(n)}{Search, insert, delete\\in the middle}
+  \dsastat[sky!55!white]{10.743cm}{6}{Languages, every\\example tested}
+  \dsachip{0}{0}{s:locker}{Lockers}
+  \dsachip{1}{0}{s:memory}{Memory}
+  \dsachip{2}{0}{s:ops}{Operations}
+  \dsachip{0}{1}{s:cheat}{Cheat sheet}
+  \dsachip{1}{1}{s:code}{Code}
+  \dsachip{2}{1}{s:practice}{Practice}
+  \node[anchor=north west,text=gold,font=\semibold\small\addfontfeature{LetterSpace=10}] at ([xshift=1.27cm,yshift=-18.6cm]current page.north west) {LEVEL: BEGINNER\quad PREREQUISITES: NONE};
+  \draw[white,opacity=0.18] ([xshift=1.27cm,yshift=-19.3cm]current page.north west) -- ++(16.4cm,0);
+  \node[anchor=north west,text=white!75!navy,font=\small,text width=16cm] at ([xshift=1.27cm,yshift=-19.6cm]current page.north west) {Start here: next come the Two-Pointer technique and Linked Lists. Complexity details live in the separate Complexity Handbook.};
+\end{tikzpicture}
+\newpage
+
+\begin{callout}[gold]{What you will learn}
+\begin{itemize}
+  \item What an array is, using a real-world analogy.
+  \item How an array is laid out in computer memory, and why indexing is instant.
+  \item The five core operations and their time complexity.
+  \item Working code for every operation in six languages.
+  \item Practice problems to lock in the idea.
+\end{itemize}
+\end{callout}
+
+\tableofcontents
+\vspace{4pt}
+
+% ============================ 1 ============================
+\section{Real-World Scenario: A Row of Lockers}\label{s:locker}
+
+A gym has \textbf{5 lockers in a row}, side by side, numbered from 0.
+
+\begin{center}
+\begin{tikzpicture}[x=2.3cm,y=1cm,
+  box/.style={draw=accent,fill=soft,thick,minimum width=2.1cm,minimum height=1.1cm,rounded corners=2pt,font=\small\bfseries},
+  idx/.style={font=\footnotesize\color{cmt}}]
+  \foreach \i/\t in {0/Bag,1/Shoes,2/Book,3/Phone,4/Keys}{
+    \node[box] (b\i) at (\i,0) {\t};
+    \node[idx] at (\i,-0.95) {locker \i};
+  }
+  \node[font=\footnotesize\color{cmt}] at (2,1.1) {a fixed row of lockers};
+\end{tikzpicture}
+\end{center}
+
+Three properties make this an array:
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=2pt]
+  \item \textbf{Fixed size.} The row has exactly 5 lockers.
+  \item \textbf{Side by side.} The lockers are \emph{contiguous}, with no gaps.
+  \item \textbf{Numbered.} To reach locker 3 you walk straight to it. You do not open lockers 0, 1 and 2 first.
+\end{enumerate}
+
+\begin{callout}{Definition}
+An \textbf{array} is a collection of items stored in \textbf{contiguous memory}, where each item is accessed by its \textbf{index}.
+\end{callout}
+
+\textbf{More real-world arrays:}
+a music playlist (song \#3 is \texttt{playlist[2]}), the days of the week, the pixels of an image (a 2D array),
+and 24 hourly temperature readings (\texttt{temps[14]} is the 2\,PM reading).
+
+% ============================ 2 ============================
+\section{How an Array Sits in Memory}\label{s:memory}
+
+RAM is a giant row of numbered boxes called \emph{addresses}. An array of 5 integers, each taking 4 bytes, occupies one unbroken block:
+
+\begin{center}
+\begin{tikzpicture}[x=2.3cm,
+  cell/.style={draw=accent,fill=soft,thick,minimum width=2.1cm,minimum height=1cm,font=\bfseries},
+  lab/.style={font=\footnotesize\color{cmt}}]
+  \foreach \i/\v/\a in {0/10/1000,1/20/1004,2/30/1008,3/40/1012,4/50/1016}{
+    \node[cell] (m\i) at (\i,0) {\v};
+    \node[lab] at (\i,0.85) {addr \a};
+    \node[lab] at (\i,-0.85) {index \i};
+  }
+  \draw[<->,thick,good] ($(m0.south west)+(0,-1.3)$) -- node[below,font=\footnotesize\color{good}] {one contiguous block, 5 $\times$ 4 bytes = 20 bytes} ($(m4.south east)+(0,-1.3)$);
+\end{tikzpicture}
+\end{center}
+
+The computer remembers only the \textbf{start address} (1000). To find any element it uses one formula:
+
+\begin{callout}[good]{The address formula}
+{\centering\texttt{address of arr[i] = start\_address + (i × size\_of\_each\_element)}\par}
+\smallskip
+Example: \texttt{arr[3]} → 1000 + (3 × 4) = \textbf{1012}
+\end{callout}
+
+This is a single calculation, with no searching. Reading by index is therefore \On{1}: the cost does not grow with the size of the array. It takes the same time for 5 elements or 5 million.
+
+% ============================ 3 ============================
+\section{The Five Core Operations}\label{s:ops}
+
+\subsection{Access by index \hfill {\normalsize\color{good}\On{1}}}
+
+\begin{center}
+\begin{tikzpicture}[x=1.5cm,
+  cell/.style={draw=accent,fill=soft,thick,minimum width=1.4cm,minimum height=0.9cm,font=\bfseries},
+  hit/.style={draw=good,fill=good!15,very thick,minimum width=1.4cm,minimum height=0.9cm,font=\bfseries}]
+  \foreach \i/\v in {0/10,1/20,2/30,4/50}{\node[cell] at (\i,0) {\v};}
+  \node[hit] (t) at (3,0) {40};
+  \node[font=\small\bfseries\color{good}] (q) at (3,1.9) {\texttt{arr[3]}};
+  \draw[->,very thick,good] (q) -- (t);
+  \foreach \i in {0,...,4}{\node[font=\footnotesize\color{cmt}] at (\i,-0.75) {\i};}
+\end{tikzpicture}
+\end{center}
+
+We jump straight to the cell, with no scanning.
+
+\subsection{Search for a value \hfill {\normalsize\color{warn}\On{n}}}
+
+If you do not know where \texttt{40} is, you must check each cell in turn.
+
+\begin{center}
+\begin{tikzpicture}[x=1.5cm,
+  cell/.style={draw=accent,fill=soft,thick,minimum width=1.4cm,minimum height=0.9cm,font=\bfseries},
+  no/.style={draw=bad,fill=bad!8,thick,minimum width=1.4cm,minimum height=0.9cm,font=\bfseries},
+  yes/.style={draw=good,fill=good!15,very thick,minimum width=1.4cm,minimum height=0.9cm,font=\bfseries}]
+  \node[no] (a) at (0,0) {10}; \node[no] (b) at (1,0) {20}; \node[no] (c) at (2,0) {30};
+  \node[yes] (d) at (3,0) {40}; \node[cell] (e) at (4,0) {50};
+  \foreach \x/\y in {a/b,b/c,c/d}{\draw[->,thick,warn] ([yshift=0.75cm]\x.north) to[bend left=35] ([yshift=0.75cm]\y.north);}
+  \node[font=\footnotesize\color{bad}] at (1,-0.8) {not 40, keep going};
+  \node[font=\footnotesize\color{good}] at (3.3,-0.8) {found at index 3};
+\end{tikzpicture}
+\end{center}
+
+In the \emph{worst case} (the target is last, or missing) we inspect all $n$ items, so the cost is \On{n}.
+
+\subsection{Insert in the middle \hfill {\normalsize\color{bad}\On{n}}}
+
+Insert \texttt{25} at index 2. Everything from index 2 onward must shift one place right to make room.
+
+\begin{center}
+\begin{tikzpicture}[x=1.35cm,
+  c/.style={draw=accent,fill=soft,thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small},
+  s/.style={draw=warn,fill=warn!15,thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small},
+  e/.style={draw=cmt,dashed,minimum width=1.25cm,minimum height=0.8cm,font=\small\color{cmt}},
+  n/.style={draw=good,fill=good!15,very thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small},
+  stp/.style={font=\footnotesize\bfseries\color{cmt},anchor=east}]
+  % before
+  \node[stp] at (-0.9,0) {Before};
+  \node[c] at (0,0) {10}; \node[c] at (1,0) {20}; \node[s] at (2,0) {30}; \node[s] at (3,0) {40}; \node[s] at (4,0) {50}; \node[e] at (5,0) {};
+  % shift
+  \node[stp] at (-0.9,-1.5) {Shift right};
+  \node[c] at (0,-1.5) {10}; \node[c] at (1,-1.5) {20}; \node[e] at (2,-1.5) {}; \node[s] at (3,-1.5) {30}; \node[s] at (4,-1.5) {40}; \node[s] at (5,-1.5) {50};
+  \foreach \i in {2,3,4}{\draw[->,thick,warn] (\i,-0.5) -- (\i+1,-1.0);}
+  % after
+  \node[stp] at (-0.9,-3.0) {After};
+  \node[c] at (0,-3.0) {10}; \node[c] at (1,-3.0) {20}; \node[n] at (2,-3.0) {25}; \node[c] at (3,-3.0) {30}; \node[c] at (4,-3.0) {40}; \node[c] at (5,-3.0) {50};
+  \draw[->,very thick,good] (2,-2.0) -- (2,-2.5);
+\end{tikzpicture}
+\end{center}
+
+Think of lockers bolted together: you cannot squeeze one in, so you have to move the rest over.
+Inserting at the \emph{front} is the worst case, because all $n$ items shift.
+
+\subsection{Delete from the middle \hfill {\normalsize\color{bad}\On{n}}}
+
+Deleting leaves a hole, so the elements after it shift left to close the gap.
+
+\begin{center}
+\begin{tikzpicture}[x=1.35cm,
+  c/.style={draw=accent,fill=soft,thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small},
+  s/.style={draw=warn,fill=warn!15,thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small},
+  d/.style={draw=bad,fill=bad!10,very thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small},
+  stp/.style={font=\footnotesize\bfseries\color{cmt},anchor=east}]
+  \node[stp] at (-0.9,0) {Delete 30};
+  \node[c] at (0,0) {10}; \node[c] at (1,0) {20}; \node[d] at (2,0) {30}; \node[s] at (3,0) {40}; \node[s] at (4,0) {50};
+  \draw[bad,very thick] (1.65,0.3) -- (2.35,-0.3); \draw[bad,very thick] (1.65,-0.3) -- (2.35,0.3);
+  \node[stp] at (-0.9,-1.5) {Shift left};
+  \node[c] at (0,-1.5) {10}; \node[c] at (1,-1.5) {20}; \node[s] at (2,-1.5) {40}; \node[s] at (3,-1.5) {50};
+  \draw[->,thick,warn] (3,-0.5) -- (2,-1.0); \draw[->,thick,warn] (4,-0.5) -- (3,-1.0);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Append at the end \hfill {\normalsize\color{good}\On{1}\textsuperscript{*}}}
+
+If there is free space at the end, nothing needs to move.
+
+\begin{center}
+\begin{tikzpicture}[x=1.35cm,
+  c/.style={draw=accent,fill=soft,thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small},
+  e/.style={draw=cmt,dashed,minimum width=1.25cm,minimum height=0.8cm,font=\small\color{cmt}},
+  n/.style={draw=good,fill=good!15,very thick,minimum width=1.25cm,minimum height=0.8cm,font=\bfseries\small}]
+  \foreach \i/\v in {0/10,1/20,2/30,3/40,4/50}{\node[c] at (\i,0) {\v};}
+  \node[e] at (5,0) {};
+  \node[n] at (5,-1.4) {60};
+  \foreach \i/\v in {0/10,1/20,2/30,3/40,4/50}{\node[c] at (\i,-1.4) {\v};}
+  \draw[->,very thick,good] (5,-0.55) -- (5,-0.9);
+\end{tikzpicture}
+\end{center}
+
+\textsuperscript{*}\,\textbf{Amortized.} A \emph{dynamic array} (Python \texttt{list}, Java \texttt{ArrayList}, Go slice, Rust \texttt{Vec}, JavaScript array) allocates a bigger block when it fills up and copies everything across. That resize costs \On{n}, but it happens rarely. Averaged over many appends, each one is \On{1}.
+
+% ============================ 4 ============================
+\section{Complexity Cheat Sheet}\label{s:cheat}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{@{}l c X@{}}
+\toprule
+\textbf{Operation} & \textbf{Time} & \textbf{Why} \\
+\midrule
+Access \texttt{arr[i]}      & {\color{good}\On{1}} & Address formula, one calculation \\
+Search (unsorted)           & {\color{warn}\On{n}} & Check one by one \\
+Insert at the end           & {\color{good}\On{1}}\textsuperscript{*} & No shifting (amortized) \\
+Insert at start or middle   & {\color{bad}\On{n}}  & Shift elements right \\
+Delete at start or middle   & {\color{bad}\On{n}}  & Shift elements left \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{tcolorbox}[enhanced,colback=good!6,colframe=good!60,boxrule=0.6pt,arc=3pt,sidebyside,sidebyside gap=8pt,lower separated=false,before skip=8pt,after skip=8pt]
+\textbf{\color{good}Strengths}
+\begin{itemize}[leftmargin=1.1em,itemsep=1pt,topsep=2pt]
+  \item Very fast reads by index
+  \item Simple to understand and use
+  \item Cache-friendly (contiguous data)
+\end{itemize}
+\tcblower
+\textbf{\color{bad}Weaknesses}
+\begin{itemize}[leftmargin=1.1em,itemsep=1pt,topsep=2pt]
+  \item Slow insert/delete in the middle
+  \item Fixed size (plain arrays)
+  \item Search is \On{n} unless sorted
+\end{itemize}
+\end{tcolorbox}
+
+% ============================ 5 ============================
+\section{The Code, in Six Languages}\label{s:code}
+
+Every program below does the same five things on the array \texttt{[10, 20, 30, 40, 50]}: access index 3, linearly search for 40, insert 25 at index 2, delete index 2, and append 60. All six programs were compiled and run, and each printed the same results:
+
+\begin{center}
+\ttfamily\small
+\begin{tabular}{@{}ll@{}}
+40 & \textcolor{cmt}{access} \\
+3 & \textcolor{cmt}{search result} \\
+{[10, 20, 25, 30, 40, 50]} & \textcolor{cmt}{after insert} \\
+{[10, 20, 30, 40, 50]} & \textcolor{cmt}{after delete} \\
+{[10, 20, 30, 40, 50, 60]} & \textcolor{cmt}{after append}
+\end{tabular}
+\end{center}
+{\small\color{cmt}(Go prints lists without commas and Rust prints the search result as \texttt{Some(3)}. The values are the same.)}
+
+\codesection[36]{Java}{JavaX}{ArraysDemo.java}{Java: \texttt{int[]} and \texttt{ArrayList}}
+
+\codesection[25]{Python}{PyX}{arrays.py}{Python 3: \texttt{list}}
+
+\codesection[25]{JavaScript}{JS}{arrays.js}{JavaScript (Node.js)}
+
+\codesection[34]{Go}{Go}{arrays.go}{Go: slice}
+
+\codesection[25]{TypeScript}{TypeScript}{arrays.ts}{TypeScript}
+
+\codesection[30]{Rust}{Rust}{arrays.rs}{Rust: \texttt{Vec<i32>}}
+
+\begin{callout}[warn]{Language notes}
+\begin{itemize}
+  \item \textbf{Java:} a plain \texttt{int[]} has a fixed length and cannot grow, so insert, delete and append use \texttt{ArrayList}, Java's dynamic array.
+  \item \textbf{Go:} there is no built-in insert or delete. You build them with \texttt{append} and slicing, which makes the \On{n} shifting visible.
+  \item \textbf{Rust:} \texttt{linear\_search} returns an \texttt{Option<usize>}: \texttt{Some(index)} if found, \texttt{None} if not, so the compiler forces you to handle ``not found'' instead of returning a magic $-1$.
+  \item \textbf{TypeScript:} identical to JavaScript except for the type annotations (\texttt{number[]}, \texttt{: number}), which are checked at compile time.
+\end{itemize}
+\end{callout}
+
+% ============================ 6 ============================
+\Needspace{22\baselineskip}
+\section{Practice Problems}\label{s:practice}
+
+Try these before the next lesson, in any of the six languages.
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=6pt]
+  \item[\textbf{1.}] \textbf{Easy.} Given \texttt{[4, 9, 1, 7]}, find the largest number without using a built-in \texttt{max}.
+  \item[\textbf{2.}] \textbf{Easy.} Reverse an array in place: \texttt{[1,2,3,4,5]} $\to$ \texttt{[5,4,3,2,1]}.\\
+    {\small\color{cmt}Hint: put one pointer at each end and swap as they move toward the middle.}
+  \item[\textbf{3.}] \textbf{Medium.} Given \texttt{[3, 8, 2, 5]} and a target \texttt{10}, find two numbers that add up to the target. Describe your approach and its time complexity.
+\end{enumerate}
+
+\begin{callout}{Check your understanding}
+\begin{enumerate}[leftmargin=1.4em,itemsep=3pt,topsep=0pt]
+  \item Why is \texttt{arr[i]} \On{1}, but searching for a value \On{n}?
+  \item Why is inserting at the \emph{front} of an array expensive?
+  \item Why can appending to a dynamic array be called \On{1} even though a resize costs \On{n}?
+\end{enumerate}
+\end{callout}
+
+\section{What Comes Next}\label{s:next}
+
+\textbf{Lesson 2: the Two-Pointer technique.} It solves problems like practice \#2 and \#3 efficiently.
+After that, \textbf{Linked Lists}, a structure built to fix the array's slow-insertion weakness.
+
+\vfill
+\begin{center}
+{\small\color{cmt}DSA Mastery \ \textperiodcentered\ Lesson 1 \ \textperiodcentered\ Code verified with Python 3, Java, Go, Rust, Node.js and TypeScript}
+\end{center}
+
+\end{document}

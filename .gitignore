@@ -1,0 +1,36 @@
+# LaTeX build artifacts (the .tex sources and final .pdf files ARE tracked)
+*.aux
+*.log
+*.out
+*.toc
+*.bkm
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+
+# Compiled output from the code examples (build them in a temp dir instead)
+*.class
+*.o
+*.exe
+*.pyc
+__pycache__/
+target/
+node_modules/
+*.js.map
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*~
+*.swp

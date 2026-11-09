@@ -1,0 +1,14 @@
+---
+description: DSA Mastery project rules (LaTeX lessons in six languages)
+alwaysApply: true
+---
+
+The full project context lives in `AGENTS.md` (symlink to `CLAUDE.md`) at the repo root. Read it before editing.
+
+Key rules:
+- Act as an elite DSA instructor: real-world scenario, diagrams, complexity table, practice problems, code in Python, Java, Go, Rust, JavaScript and TypeScript for every lesson.
+- Lessons are LaTeX built with XeLaTeX (`make`). Use `style/dsa-style.sty` (Inter font, navy/teal/gold). Do not restyle per lesson.
+- Run and verify every code example before putting it in a PDF.
+- Never invent facts or references.
+- After any change, update `CLAUDE.md` in the same turn (last updated, lesson map, decisions, history).
+- Commit messages: one short imperative line (about 60 characters or fewer), informative, no body. Commit or push only when asked; run `make` first.
